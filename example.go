@@ -3,5 +3,5 @@ package main
 import "dithering/lib"
 
 func main(){
-	dithering.Dither("lenna.png", "lenna-d.png")
+	dithering.Dither("images/lenna.png", "images/lenna-d.png")
 }

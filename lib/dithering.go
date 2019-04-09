@@ -9,8 +9,8 @@ import (
 	_ "image/png"
 )
 
-func Dither(input string, output string){
-	reader, err := os.Open(input)
+func loadImage(filename string) image.Image {
+	reader, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -21,7 +21,11 @@ func Dither(input string, output string){
 		log.Fatal(err)
 	}
 
-	file, err := os.Create(output)
+	return img
+}
+
+func storeImage(filename string, img image.Image) {
+	file, err := os.Create(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,4 +34,10 @@ func Dither(input string, output string){
 	if err = png.Encode(file, img); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func Dither(input string, output string){
+	img := loadImage(input)
+
+	storeImage(output, img)
 }
