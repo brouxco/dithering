@@ -10,6 +10,16 @@ import (
 	_ "image/jpeg"
 )
 
+func bound(x int16) int16 {
+	if x > 255 {
+		return 255
+	} else if x < -255 {
+		return -255
+	} else {
+		return x
+	}
+}
+
 func abs(x int16) int16 {
 	if x < 0 {
 		return -x
@@ -44,14 +54,14 @@ func storeImage(filename string, img image.Image) {
 	}
 }
 
-func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA) {
+func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA64) {
 	var errR, errG, errB, pixR, pixG, pixB int16
 	_errR, _errG, _errB, _ := err.RGBA()
 	_pixR, _pixG, _pixB, _ := pix.RGBA()
 
-	errR = int16(int8(_errR))
-	errG = int16(int8(_errG))
-	errB = int16(int8(_errB))
+	errR = int16(_errR)
+	errG = int16(_errG)
+	errB = int16(_errB)
 	pixR = int16(uint8(_pixR))
 	pixG = int16(uint8(_pixG))
 	pixB = int16(uint8(_pixB))
@@ -61,15 +71,15 @@ func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA) {
 
 	if diff_black < diff_white {
 		return color.RGBA{0, 0, 0, 255},
-			color.RGBA{uint8((-pixR) + errR),
-				uint8((-pixG) + errG),
-				uint8((-pixB) + errB),
+			color.RGBA64{uint16(bound((-pixR) + errR)),
+				uint16(bound((-pixG) + errG)),
+				uint16(bound((-pixB) + errB)),
 				255}
 	} else {
 		return color.RGBA{255, 255, 255, 255},
-			color.RGBA{uint8((255 - pixR) + errR),
-				uint8((255 - pixG) + errG),
-				uint8((255 - pixB) + errB),
+			color.RGBA64{uint16(bound((255 - pixR) + errR)),
+				uint16(bound((255 - pixG) + errG)),
+				uint16(bound((255 - pixB) + errB)),
 				255}
 	}
 }
@@ -80,20 +90,20 @@ func Dither(input string, output string) {
 	bounds := img.Bounds()
 
 	result := image.NewRGBA(bounds)
-	err := image.NewRGBA(bounds)
+	err := image.NewRGBA64(bounds)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			// using the closest color
 			// TODO: palettes
-			r, e := findColor(err.At(x, y), img.At(x, y))
+			r, e := findColor(err.RGBA64At(x, y), img.At(x, y))
 			result.SetRGBA(x, y, r)
-			err.SetRGBA(x, y, e)
+			err.SetRGBA64(x, y, e)
 
 			// diffusing the error using the diffusion matrix
 			// TODO: matrices
 			if x+1 < bounds.Max.X {
-				err.SetRGBA(x+1, y, err.RGBAAt(x, y))
+				err.SetRGBA64(x+1, y, err.RGBA64At(x, y))
 			}
 		}
 	}
