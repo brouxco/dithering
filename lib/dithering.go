@@ -59,7 +59,7 @@ func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA) {
 	diff_black := abs(errR-pixR) + abs(errG-pixG) + abs(errB-pixB)
 	diff_white := abs((255+errR)-pixR) + abs((255+errG)-pixG) + abs((255+errB)-pixB)
 
-	if diff_black > diff_white {
+	if diff_black < diff_white {
 		return color.RGBA{0, 0, 0, 255},
 			color.RGBA{uint8((-pixR) + errR),
 				uint8((-pixG) + errG),
