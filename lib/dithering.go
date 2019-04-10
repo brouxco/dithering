@@ -74,13 +74,13 @@ func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA64) {
 			color.RGBA64{uint16(bound((-pixR) + errR)),
 				uint16(bound((-pixG) + errG)),
 				uint16(bound((-pixB) + errB)),
-				255}
+				1 << 16 - 1}
 	} else {
 		return color.RGBA{255, 255, 255, 255},
 			color.RGBA64{uint16(bound((255 - pixR) + errR)),
 				uint16(bound((255 - pixG) + errG)),
 				uint16(bound((255 - pixB) + errB)),
-				255}
+				1 << 16 - 1}
 	}
 }
 
