@@ -20,11 +20,11 @@ func bound(x int16) int16 {
 	}
 }
 
-func abs(x int16) int16 {
+func abs(x int16) uint16 {
 	if x < 0 {
-		return -x
+		return uint16(-x)
 	}
-	return x
+	return uint16(x)
 }
 
 func loadImage(filename string) image.Image {
@@ -54,8 +54,10 @@ func storeImage(filename string, img image.Image) {
 	}
 }
 
-func findColor(err color.Color, pix color.Color) (color.RGBA, PixelError) {
-	var errR, errG, errB, pixR, pixG, pixB int16
+func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA, PixelError) {
+	var errR, errG, errB,
+		pixR, pixG, pixB,
+		colR, colG, colB int16
 	_errR, _errG, _errB, _ := err.RGBA()
 	_pixR, _pixG, _pixB, _ := pix.RGBA()
 
@@ -66,28 +68,48 @@ func findColor(err color.Color, pix color.Color) (color.RGBA, PixelError) {
 	pixG = int16(uint8(_pixG))
 	pixB = int16(uint8(_pixB))
 
-	diff_black := abs(errR-pixR) + abs(errG-pixG) + abs(errB-pixB)
-	diff_white := abs((255+errR)-pixR) + abs((255+errG)-pixG) + abs((255+errB)-pixB)
+	var index int
+	var minDiff uint16 = 1<<16 - 1
 
-	if diff_black < diff_white {
-		return color.RGBA{0, 0, 0, 255},
-			PixelError{float32(bound((-pixR) + errR)),
-				float32(bound((-pixG) + errG)),
-				float32(bound((-pixB) + errB)),
-				1 << 16 - 1}
-	} else {
-		return color.RGBA{255, 255, 255, 255},
-			PixelError{float32(bound((255 - pixR) + errR)),
-				float32(bound((255 - pixG) + errG)),
-				float32(bound((255 - pixB) + errB)),
-				1 << 16 - 1}
+	for i, col := range pal {
+		_colR, _colG, _colB, _ := col.RGBA()
+
+		colR = int16(uint8(_colR))
+		colG = int16(uint8(_colG))
+		colB = int16(uint8(_colB))
+		var distance = abs(colR+errR-pixR) + abs(colG+errG-pixG) + abs(colB+errB-pixB)
+
+		if distance < minDiff {
+			index = i
+			minDiff = distance
+		}
 	}
+
+	_colR, _colG, _colB, _ := pal[index].RGBA()
+
+	colR = int16(uint8(_colR))
+	colG = int16(uint8(_colG))
+	colB = int16(uint8(_colB))
+
+	return color.RGBA{uint8(colR), uint8(colG), uint8(colB), 255},
+		PixelError{float32(bound((colR - pixR) + errR)),
+			float32(bound((colG - pixG) + errG)),
+			float32(bound((colB - pixB) + errB)),
+			1<<16 - 1}
 }
 
 func Dither(input string, output string) {
 	img := loadImage(input)
 
 	bounds := img.Bounds()
+
+	p := color.Palette{
+		color.RGBA{0, 0, 0, 255},
+		color.RGBA{255, 255, 255, 255},
+		color.RGBA{255, 0, 0, 255},
+		color.RGBA{0, 255, 0, 255},
+		color.RGBA{0, 0, 255, 255},
+	}
 
 	result := image.NewRGBA(bounds)
 	err := NewErrorImage(bounds)
@@ -96,7 +118,7 @@ func Dither(input string, output string) {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			// using the closest color
 			// TODO: palettes
-			r, e := findColor(err.PixelErrorAt(x, y), img.At(x, y))
+			r, e := findColor(err.PixelErrorAt(x, y), img.At(x, y), p)
 			result.SetRGBA(x, y, r)
 			err.SetPixelError(x, y, e)
 
@@ -108,5 +130,5 @@ func Dither(input string, output string) {
 		}
 	}
 
-	storeImage(output, err)
+	storeImage(output, result)
 }
