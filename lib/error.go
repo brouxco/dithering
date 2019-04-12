@@ -16,6 +16,20 @@ func (c PixelError) RGBA() (r, g, b, a uint32) {
 	return uint32(c.R), uint32(c.G), uint32(c.B), uint32(c.A)
 }
 
+func (c PixelError) Add(c2 PixelError) PixelError {
+	r := c.R + c2.R
+	g := c.G + c2.G
+	b := c.B + c2.B
+	return PixelError{r, g, b, 0}
+}
+
+func (c PixelError) Mul(v float32) PixelError {
+	r := c.R * v
+	g := c.G * v
+	b := c.B * v
+	return PixelError{r, g, b, 0}
+}
+
 func pixelErrorModel(c color.Color) color.Color {
 	if _, ok := c.(PixelError); ok {
 		return c
@@ -29,7 +43,7 @@ type ErrorImage struct {
 	// Pix holds the image's pixels, in R, G, B, A order. The pixel at
 	// (x, y) starts at Pix[(y-Rect.Min.Y)*Stride + (x-Rect.Min.X)*4].
 	Pix []float32
-	// Stride is the Pix stride (in bytes) between vertically adjacent pixels.
+	// Stride is the Pix stride between vertically adjacent pixels.
 	Stride int
 	// Rect is the image's bounds.
 	Rect image.Rectangle
@@ -45,12 +59,27 @@ func (p *ErrorImage) At(x, y int) color.Color {
 	return p.PixelErrorAt(x, y)
 }
 
+func clamp(f float32) float32 {
+	if f > 255 {
+		return 255
+	} else if f < -255 {
+		return -255
+	} else {
+		return f
+	}
+}
+
 func (p *ErrorImage) PixelErrorAt(x, y int) PixelError {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return PixelError{}
 	}
 	i := p.PixOffset(x, y)
-	return PixelError{p.Pix[i+0], p.Pix[i+1], p.Pix[i+2], p.Pix[i+3]}
+	r := clamp(p.Pix[i+0])
+	g := clamp(p.Pix[i+1])
+	b := clamp(p.Pix[i+2])
+	a := clamp(p.Pix[i+3])
+
+	return PixelError{r, g, b, a}
 }
 
 // PixOffset returns the index of the first element of Pix that corresponds to

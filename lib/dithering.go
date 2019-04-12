@@ -10,16 +10,6 @@ import (
 	_ "image/jpeg"
 )
 
-func bound(x int16) int16 {
-	if x > 255 {
-		return 255
-	} else if x < -255 {
-		return -255
-	} else {
-		return x
-	}
-}
-
 func abs(x int16) uint16 {
 	if x < 0 {
 		return uint16(-x)
@@ -92,9 +82,9 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 	colB = int16(uint8(_colB))
 
 	return color.RGBA{uint8(colR), uint8(colG), uint8(colB), 255},
-		PixelError{float32(bound((colR - pixR) + errR)),
-			float32(bound((colG - pixG) + errG)),
-			float32(bound((colB - pixB) + errB)),
+		PixelError{float32((colR - pixR) + errR),
+			float32((colG - pixG) + errG),
+			float32((colB - pixB) + errB),
 			1<<16 - 1}
 }
 
@@ -111,21 +101,32 @@ func Dither(input string, output string) {
 		color.RGBA{0, 0, 255, 255},
 	}
 
+	m := [2][3]float32{
+		{
+			0, 0, 7.0 / 16.0,
+		},
+		{
+			3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0,
+		},
+	}
+	shift := -1
+
 	result := image.NewRGBA(bounds)
 	err := NewErrorImage(bounds)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			// using the closest color
-			// TODO: palettes
 			r, e := findColor(err.PixelErrorAt(x, y), img.At(x, y), p)
 			result.SetRGBA(x, y, r)
 			err.SetPixelError(x, y, e)
 
 			// diffusing the error using the diffusion matrix
-			// TODO: matrices
-			if x+1 < bounds.Max.X {
-				err.SetPixelError(x+1, y, err.PixelErrorAt(x, y))
+			for i, v1 := range m {
+				for j, v2 := range v1 {
+					err.SetPixelError(x+j+shift, y+i,
+						err.PixelErrorAt(x+j+shift, y+i).Add(err.PixelErrorAt(x, y).Mul(v2)))
+				}
 			}
 		}
 	}
