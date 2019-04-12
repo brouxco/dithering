@@ -1,6 +1,7 @@
 package dithering
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -44,7 +45,7 @@ func storeImage(filename string, img image.Image) {
 	}
 }
 
-func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA, PixelError) {
+func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA, PixelError, uint16) {
 	var errR, errG, errB,
 		pixR, pixG, pixB,
 		colR, colG, colB int16
@@ -85,7 +86,8 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 		PixelError{float32((colR - pixR) + errR),
 			float32((colG - pixG) + errG),
 			float32((colB - pixB) + errB),
-			1<<16 - 1}
+			1<<16 - 1},
+			minDiff
 }
 
 func Dither(input string, output string) {
@@ -113,13 +115,15 @@ func Dither(input string, output string) {
 
 	result := image.NewRGBA(bounds)
 	err := NewErrorImage(bounds)
+	var diff uint64 = 0
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			// using the closest color
-			r, e := findColor(err.PixelErrorAt(x, y), img.At(x, y), p)
+			r, e, d := findColor(err.PixelErrorAt(x, y), img.At(x, y), p)
 			result.SetRGBA(x, y, r)
 			err.SetPixelError(x, y, e)
+			diff += uint64(d)
 
 			// diffusing the error using the diffusion matrix
 			for i, v1 := range m {
@@ -130,6 +134,8 @@ func Dither(input string, output string) {
 			}
 		}
 	}
+
+	fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*bounds.Max.X*bounds.Max.Y))*100.0)
 
 	storeImage(output, result)
 }
