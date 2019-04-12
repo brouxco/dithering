@@ -54,7 +54,7 @@ func storeImage(filename string, img image.Image) {
 	}
 }
 
-func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA64) {
+func findColor(err color.Color, pix color.Color) (color.RGBA, PixelError) {
 	var errR, errG, errB, pixR, pixG, pixB int16
 	_errR, _errG, _errB, _ := err.RGBA()
 	_pixR, _pixG, _pixB, _ := pix.RGBA()
@@ -71,15 +71,15 @@ func findColor(err color.Color, pix color.Color) (color.RGBA, color.RGBA64) {
 
 	if diff_black < diff_white {
 		return color.RGBA{0, 0, 0, 255},
-			color.RGBA64{uint16(bound((-pixR) + errR)),
-				uint16(bound((-pixG) + errG)),
-				uint16(bound((-pixB) + errB)),
+			PixelError{float32(bound((-pixR) + errR)),
+				float32(bound((-pixG) + errG)),
+				float32(bound((-pixB) + errB)),
 				1 << 16 - 1}
 	} else {
 		return color.RGBA{255, 255, 255, 255},
-			color.RGBA64{uint16(bound((255 - pixR) + errR)),
-				uint16(bound((255 - pixG) + errG)),
-				uint16(bound((255 - pixB) + errB)),
+			PixelError{float32(bound((255 - pixR) + errR)),
+				float32(bound((255 - pixG) + errG)),
+				float32(bound((255 - pixB) + errB)),
 				1 << 16 - 1}
 	}
 }
@@ -90,23 +90,23 @@ func Dither(input string, output string) {
 	bounds := img.Bounds()
 
 	result := image.NewRGBA(bounds)
-	err := image.NewRGBA64(bounds)
+	err := NewErrorImage(bounds)
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			// using the closest color
 			// TODO: palettes
-			r, e := findColor(err.RGBA64At(x, y), img.At(x, y))
+			r, e := findColor(err.PixelErrorAt(x, y), img.At(x, y))
 			result.SetRGBA(x, y, r)
-			err.SetRGBA64(x, y, e)
+			err.SetPixelError(x, y, e)
 
 			// diffusing the error using the diffusion matrix
 			// TODO: matrices
 			if x+1 < bounds.Max.X {
-				err.SetRGBA64(x+1, y, err.RGBA64At(x, y))
+				err.SetPixelError(x+1, y, err.PixelErrorAt(x, y))
 			}
 		}
 	}
 
-	storeImage(output, result)
+	storeImage(output, err)
 }
