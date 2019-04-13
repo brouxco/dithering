@@ -56,7 +56,15 @@ func (p *ErrorImage) ColorModel() color.Model {
 func (p *ErrorImage) Bounds() image.Rectangle { return p.Rect }
 
 func (p *ErrorImage) At(x, y int) color.Color {
-	return p.PixelErrorAt(x, y)
+	if !(image.Point{x, y}.In(p.Rect)) {
+		return PixelError{}
+	}
+	i := p.PixOffset(x, y)
+	r := ((clamp(p.Pix[i+0]) + 255) / 511) * 255
+	g := ((clamp(p.Pix[i+1]) + 255) / 511) * 255
+	b := ((clamp(p.Pix[i+2]) + 255) / 511) * 255
+
+	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
 
 func clamp(f float32) float32 {
