@@ -55,9 +55,9 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 	errR = int16(_errR)
 	errG = int16(_errG)
 	errB = int16(_errB)
-	pixR = int16(uint8(_pixR))
-	pixG = int16(uint8(_pixG))
-	pixB = int16(uint8(_pixB))
+	pixR = int16(uint8(_pixR)) + errR
+	pixG = int16(uint8(_pixG)) + errG
+	pixB = int16(uint8(_pixB)) + errB
 
 	var index int
 	var minDiff uint16 = 1<<16 - 1
@@ -68,7 +68,7 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 		colR = int16(uint8(_colR))
 		colG = int16(uint8(_colG))
 		colB = int16(uint8(_colB))
-		var distance = abs(colR+errR-pixR) + abs(colG+errG-pixG) + abs(colB+errB-pixB)
+		var distance = abs(pixR-colR) + abs(pixG-colG) + abs(pixB-colB)
 
 		if distance < minDiff {
 			index = i
@@ -83,9 +83,9 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 	colB = int16(uint8(_colB))
 
 	return color.RGBA{uint8(colR), uint8(colG), uint8(colB), 255},
-		PixelError{float32((colR - pixR) + errR),
-			float32((colG - pixG) + errG),
-			float32((colB - pixB) + errB),
+		PixelError{float32(pixR - colR),
+			float32(pixG - colG),
+			float32(pixB - colB),
 			1<<16 - 1},
 			minDiff
 }
@@ -95,13 +95,17 @@ func Dither(input string, output string) {
 
 	bounds := img.Bounds()
 
-	p := color.Palette{
-		color.RGBA{0, 0, 0, 255},
-		color.RGBA{255, 255, 255, 255},
-		color.RGBA{255, 0, 0, 255},
-		color.RGBA{0, 255, 0, 255},
-		color.RGBA{0, 0, 255, 255},
+	p := color.Palette{}
+
+	for r := 0; r < 256; r += 32 {
+		for g := 0; g < 256; g += 32 {
+			for b := 0; b < 256; b += 32 {
+				p = append(p, color.RGBA{uint8(r), uint8(g), uint8(b), 255})
+			}
+		}
 	}
+
+	println("Palette size: ", len(p))
 
 	m := [2][3]float32{
 		{
