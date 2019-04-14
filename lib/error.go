@@ -3,6 +3,7 @@ package dithering
 import (
 	"image"
 	"image/color"
+	"math"
 )
 
 // PixelError represents the error for each canal in the image
@@ -47,6 +48,8 @@ type ErrorImage struct {
 	Stride int
 	// Rect is the image's bounds.
 	Rect image.Rectangle
+	// Min & Max values in the image
+	Min, Max PixelError
 }
 
 func (p *ErrorImage) ColorModel() color.Model {
@@ -60,21 +63,12 @@ func (p *ErrorImage) At(x, y int) color.Color {
 		return PixelError{}
 	}
 	i := p.PixOffset(x, y)
-	r := ((clamp(p.Pix[i+0]) + 255) / 511) * 255
-	g := ((clamp(p.Pix[i+1]) + 255) / 511) * 255
-	b := ((clamp(p.Pix[i+2]) + 255) / 511) * 255
+
+	r := (p.Pix[i+0]) + float32(math.Abs(float64(p.Min.R))) / (p.Max.R - p.Min.R) * 255
+	g := (p.Pix[i+1]) + float32(math.Abs(float64(p.Min.G))) / (p.Max.G - p.Min.G) * 255
+	b := (p.Pix[i+2]) + float32(math.Abs(float64(p.Min.B))) / (p.Max.B - p.Min.B) * 255
 
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
-}
-
-func clamp(f float32) float32 {
-	if f > 255 {
-		return 255
-	} else if f < -255 {
-		return -255
-	} else {
-		return f
-	}
 }
 
 func (p *ErrorImage) PixelErrorAt(x, y int) PixelError {
@@ -82,10 +76,10 @@ func (p *ErrorImage) PixelErrorAt(x, y int) PixelError {
 		return PixelError{}
 	}
 	i := p.PixOffset(x, y)
-	r := clamp(p.Pix[i+0])
-	g := clamp(p.Pix[i+1])
-	b := clamp(p.Pix[i+2])
-	a := clamp(p.Pix[i+3])
+	r := p.Pix[i+0]
+	g := p.Pix[i+1]
+	b := p.Pix[i+2]
+	a := p.Pix[i+3]
 
 	return PixelError{r, g, b, a}
 }
@@ -102,6 +96,24 @@ func (p *ErrorImage) Set(x, y int, c color.Color) {
 	}
 	i := p.PixOffset(x, y)
 	c1 := color.ModelFunc(pixelErrorModel).Convert(c).(PixelError)
+	if c1.R > p.Max.R {
+		p.Max.R = c1.R
+	}
+	if c1.G > p.Max.G {
+		p.Max.G = c1.G
+	}
+	if c1.B > p.Max.B {
+		p.Max.B = c1.B
+	}
+	if c1.R < p.Min.R {
+		p.Min.R = c1.R
+	}
+	if c1.G < p.Min.G {
+		p.Min.G = c1.G
+	}
+	if c1.B < p.Min.B {
+		p.Min.B = c1.B
+	}
 	p.Pix[i+0] = c1.R
 	p.Pix[i+1] = c1.G
 	p.Pix[i+2] = c1.B
@@ -111,6 +123,24 @@ func (p *ErrorImage) Set(x, y int, c color.Color) {
 func (p *ErrorImage) SetPixelError(x, y int, c PixelError) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
+	}
+	if c.R > p.Max.R {
+		p.Max.R = c.R
+	}
+	if c.G > p.Max.G {
+		p.Max.G = c.G
+	}
+	if c.B > p.Max.B {
+		p.Max.B = c.B
+	}
+	if c.R < p.Min.R {
+		p.Min.R = c.R
+	}
+	if c.G < p.Min.G {
+		p.Min.G = c.G
+	}
+	if c.B < p.Min.B {
+		p.Min.B = c.B
 	}
 	i := p.PixOffset(x, y)
 	p.Pix[i+0] = c.R
@@ -122,5 +152,5 @@ func (p *ErrorImage) SetPixelError(x, y int, c PixelError) {
 func NewErrorImage(r image.Rectangle) *ErrorImage {
 	w, h := r.Dx(), r.Dy()
 	buf := make([]float32, 4*w*h)
-	return &ErrorImage{buf, 4 * w, r}
+	return &ErrorImage{buf, 4 * w, r, PixelError{}, PixelError{}}
 }

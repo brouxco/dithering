@@ -55,9 +55,13 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 	errR = int16(_errR)
 	errG = int16(_errG)
 	errB = int16(_errB)
-	pixR = int16(uint8(_pixR)) + errR
-	pixG = int16(uint8(_pixG)) + errG
-	pixB = int16(uint8(_pixB)) + errB
+	pixR = int16(uint8(_pixR))
+	pixG = int16(uint8(_pixG))
+	pixB = int16(uint8(_pixB))
+
+	pixR += int16(float32(errR) * 0.75)
+	pixG += int16(float32(errG) * 0.75)
+	pixB += int16(float32(errB) * 0.75)
 
 	var index int
 	var minDiff uint16 = 1<<16 - 1
