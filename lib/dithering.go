@@ -139,7 +139,7 @@ func Dither(input string, output string) {
 		}
 	}
 
-	fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*bounds.Max.X*bounds.Max.Y))*100.0)
+	fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*2*bounds.Max.X*bounds.Max.Y))*100.0)
 
 	storeImage(output, result)
 }
