@@ -149,6 +149,7 @@ func (p *ErrorImage) SetPixelError(x, y int, c PixelError) {
 	p.Pix[i+3] = c.A
 }
 
+// NewErrorImage returns a new ErrorImage image with the given width and height
 func NewErrorImage(r image.Rectangle) *ErrorImage {
 	w, h := r.Dx(), r.Dy()
 	buf := make([]float32, 4*w*h)

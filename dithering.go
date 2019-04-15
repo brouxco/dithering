@@ -1,7 +1,7 @@
+// Package dithering provides a customizable image ditherer
 package dithering
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 )
 
+// abs gives the absolute value of a signed integer
 func abs(x int16) uint16 {
 	if x < 0 {
 		return uint16(-x)
@@ -18,6 +19,7 @@ func abs(x int16) uint16 {
 	return uint16(x)
 }
 
+// loadImage loads the image found at the path give in parameter
 func loadImage(filename string) image.Image {
 	reader, err := os.Open(filename)
 	if err != nil {
@@ -33,6 +35,7 @@ func loadImage(filename string) image.Image {
 	return img
 }
 
+// storeImage store the image at the path give in parameter
 func storeImage(filename string, img image.Image) {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -45,6 +48,9 @@ func storeImage(filename string, img image.Image) {
 	}
 }
 
+// findColor determines the closest color in a palette given the pixel color and the error
+//
+// It returns the closest color, the updated error and the distance between the error and the color
 func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA, PixelError, uint16) {
 	var errR, errG, errB,
 		pixR, pixG, pixB,
@@ -52,16 +58,14 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 	_errR, _errG, _errB, _ := err.RGBA()
 	_pixR, _pixG, _pixB, _ := pix.RGBA()
 
-	errR = int16(_errR)
-	errG = int16(_errG)
-	errB = int16(_errB)
-	pixR = int16(uint8(_pixR))
-	pixG = int16(uint8(_pixG))
-	pixB = int16(uint8(_pixB))
+	// Low-pass filter
+	errR = int16(float32(int16(_errR)) * 0.75)
+	errG = int16(float32(int16(_errG)) * 0.75)
+	errB = int16(float32(int16(_errB)) * 0.75)
 
-	pixR += int16(float32(errR) * 0.75)
-	pixG += int16(float32(errG) * 0.75)
-	pixB += int16(float32(errB) * 0.75)
+	pixR = int16(uint8(_pixR)) + errR
+	pixG = int16(uint8(_pixG)) + errG
+	pixB = int16(uint8(_pixB)) + errB
 
 	var index int
 	var minDiff uint16 = 1<<16 - 1
@@ -94,6 +98,9 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 			minDiff
 }
 
+// Dither takes an image and generate its dithered version
+//
+// The input string is the path to the source image, the output string is the path to the destination image
 func Dither(input string, output string) {
 	img := loadImage(input)
 
@@ -109,7 +116,7 @@ func Dither(input string, output string) {
 		}
 	}
 
-	println("Palette size: ", len(p))
+	//println("Palette size: ", len(p))
 
 	m := [2][3]float32{
 		{
@@ -143,7 +150,7 @@ func Dither(input string, output string) {
 		}
 	}
 
-	fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*2*bounds.Max.X*bounds.Max.Y))*100.0)
+	//fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*2*bounds.Max.X*bounds.Max.Y))*100.0)
 
 	storeImage(output, result)
 }
