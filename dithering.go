@@ -4,12 +4,16 @@ package dithering
 import (
 	"image"
 	"image/color"
-	"image/png"
-	"log"
-	"os"
-
-	_ "image/jpeg"
+	"image/draw"
 )
+
+// Dither represent dithering algorithm implementation
+type Dither struct {
+	// Matrix is the error diffusion matrix
+	Matrix [][]float32
+	// TODO(brouxco): the shift should not be necessary, the algorithm could determine it automatically given the matrix
+	Shift  int
+}
 
 // abs gives the absolute value of a signed integer
 func abs(x int16) uint16 {
@@ -17,35 +21,6 @@ func abs(x int16) uint16 {
 		return uint16(-x)
 	}
 	return uint16(x)
-}
-
-// loadImage loads the image found at the path give in parameter
-func loadImage(filename string) image.Image {
-	reader, err := os.Open(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer reader.Close()
-
-	img, _, err := image.Decode(reader)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return img
-}
-
-// storeImage store the image at the path give in parameter
-func storeImage(filename string, img image.Image) {
-	file, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	if err = png.Encode(file, img); err != nil {
-		log.Fatal(err)
-	}
 }
 
 // findColor determines the closest color in a palette given the pixel color and the error
@@ -98,59 +73,31 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 			minDiff
 }
 
-// Dither takes an image and generate its dithered version
-//
-// The input string is the path to the source image, the output string is the path to the destination image
-func Dither(input string, output string) {
-	img := loadImage(input)
-
-	bounds := img.Bounds()
-
-	p := color.Palette{}
-
-	for r := 0; r < 256; r += 32 {
-		for g := 0; g < 256; g += 32 {
-			for b := 0; b < 256; b += 32 {
-				p = append(p, color.RGBA{uint8(r), uint8(g), uint8(b), 255})
-			}
-		}
+// Draw applies an error diffusion algorithm to the src image
+func (dit Dither) Draw(dst draw.Image, r image.Rectangle, src image.Image, sp image.Point) {
+	if _, ok := dst.(*image.Paletted); !ok {
+		return
 	}
+	p := dst.(*image.Paletted).Palette
 
-	//println("Palette size: ", len(p))
+	err := NewErrorImage(r)
+	var diff uint64
 
-	m := [2][3]float32{
-		{
-			0, 0, 7.0 / 16.0,
-		},
-		{
-			3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0,
-		},
-	}
-	shift := -1
-
-	result := image.NewRGBA(bounds)
-	err := NewErrorImage(bounds)
-	var diff uint64 = 0
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
 			// using the closest color
-			r, e, d := findColor(err.PixelErrorAt(x, y), img.At(x, y), p)
-			result.SetRGBA(x, y, r)
+			r, e, d := findColor(err.PixelErrorAt(x, y), src.At(x, y), p)
+			dst.Set(x, y, r)
 			err.SetPixelError(x, y, e)
 			diff += uint64(d)
 
 			// diffusing the error using the diffusion matrix
-			for i, v1 := range m {
+			for i, v1 := range dit.Matrix {
 				for j, v2 := range v1 {
-					err.SetPixelError(x+j+shift, y+i,
-						err.PixelErrorAt(x+j+shift, y+i).Add(err.PixelErrorAt(x, y).Mul(v2)))
+					err.SetPixelError(x+j+dit.Shift, y+i,
+						err.PixelErrorAt(x+j+dit.Shift, y+i).Add(err.PixelErrorAt(x, y).Mul(v2)))
 				}
 			}
 		}
 	}
-
-	//fmt.Printf("%f", (1.0-float64(diff)/float64(3*255*2*bounds.Max.X*bounds.Max.Y))*100.0)
-
-	storeImage(output, result)
 }

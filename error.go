@@ -10,13 +10,16 @@ import (
 // when dithering an image
 // Errors are floats because they are the result of a division
 type PixelError struct {
+	// TODO(brouxco): the alpha value does not make a lot of sense in a PixelError
 	R, G, B, A float32
 }
 
+// RGBA returns the errors for each canal in the image
 func (c PixelError) RGBA() (r, g, b, a uint32) {
 	return uint32(c.R), uint32(c.G), uint32(c.B), uint32(c.A)
 }
 
+// Add adds two PixelError
 func (c PixelError) Add(c2 PixelError) PixelError {
 	r := c.R + c2.R
 	g := c.G + c2.G
@@ -24,6 +27,7 @@ func (c PixelError) Add(c2 PixelError) PixelError {
 	return PixelError{r, g, b, 0}
 }
 
+// Mul multiplies two PixelError
 func (c PixelError) Mul(v float32) PixelError {
 	r := c.R * v
 	g := c.G * v
@@ -52,12 +56,15 @@ type ErrorImage struct {
 	Min, Max PixelError
 }
 
+// ColorModel returns the ErrorImage color model
 func (p *ErrorImage) ColorModel() color.Model {
 	return color.ModelFunc(pixelErrorModel)
 }
 
+// Bounds returns the domain for which At can return non-zero color
 func (p *ErrorImage) Bounds() image.Rectangle { return p.Rect }
 
+// At returns the color of the pixel at (x, y)
 func (p *ErrorImage) At(x, y int) color.Color {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return PixelError{}
@@ -71,6 +78,7 @@ func (p *ErrorImage) At(x, y int) color.Color {
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
 
+// PixelErrorAt returns the pixel error at (x, y)
 func (p *ErrorImage) PixelErrorAt(x, y int) PixelError {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return PixelError{}
@@ -90,6 +98,7 @@ func (p *ErrorImage) PixOffset(x, y int) int {
 	return (y-p.Rect.Min.Y)*p.Stride + (x-p.Rect.Min.X)*4
 }
 
+// Set sets the error of the pixel at (x, y)
 func (p *ErrorImage) Set(x, y int, c color.Color) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
@@ -120,6 +129,7 @@ func (p *ErrorImage) Set(x, y int, c color.Color) {
 	p.Pix[i+3] = c1.A
 }
 
+// SetPixelError sets the error of the pixel at (x, y)
 func (p *ErrorImage) SetPixelError(x, y int, c PixelError) {
 	if !(image.Point{x, y}.In(p.Rect)) {
 		return
