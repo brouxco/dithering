@@ -7,12 +7,22 @@ import (
 	"image/draw"
 )
 
+var (
+	// FloydSteinberg is the Floyd Steinberg matrix
+	FloydSteinberg    = [][]float32{{0, 0, 7.0 / 16.0}, {3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0}}
+	JarvisJudiceNinke = [][]float32{{0, 0, 0, 7.0 / 48.0, 5.0 / 48.0}, {3.0 / 48.0, 5.0 / 48.0, 7.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0}, {1.0 / 48.0, 3.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 1.0 / 48.0}}
+	Stucki            = [][]float32{{0, 0, 0, 8.0 / 42.0, 4.0 / 42.0}, {2.0 / 42.0, 4.0 / 42.0, 8.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0}, {1.0 / 42.0, 2.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 1.0 / 42.0}}
+	Atkinson          = [][]float32{{0, 0, 1.0 / 8.0, 1.0 / 8.0}, {1.0 / 8.0, 1.0 / 8.0, 1.0 / 8.0, 0}, {0, 1.0 / 8.0, 0, 0}}
+	Burkes            = [][]float32{{0, 0, 0, 8.0 / 32.0, 4.0 / 32.0}, {2.0 / 32.0, 4.0 / 32.0, 8.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0}}
+	Sierra            = [][]float32{{0, 0, 0, 5.0 / 32.0, 3.0 / 32.0}, {2.0 / 32.0, 4.0 / 32.0, 5.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0}, {0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 0}}
+	TwoRowSierra      = [][]float32{{0, 0, 0, 4.0 / 16.0, 3.0 / 16.0}, {1.0 / 32.0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 1.0 / 32.0}}
+	SierraLite        = [][]float32{{0, 0, 2.0 / 4.0}, {1.0 / 4.0, 1.0 / 4.0, 0}}
+)
+
 // Dither represent dithering algorithm implementation
 type Dither struct {
 	// Matrix is the error diffusion matrix
 	Matrix [][]float32
-	// TODO(brouxco): the shift should not be necessary, the algorithm could determine it automatically given the matrix
-	Shift  int
 }
 
 // abs gives the absolute value of a signed integer
@@ -70,7 +80,18 @@ func findColor(err color.Color, pix color.Color, pal color.Palette) (color.RGBA,
 			float32(pixG - colG),
 			float32(pixB - colB),
 			1<<16 - 1},
-			minDiff
+		minDiff
+}
+
+func findShift(matrix [][]float32) int {
+	for _, v1 := range matrix {
+		for j, v2 := range v1 {
+			if v2 > 0.0 {
+				return -j + 1
+			}
+		}
+	}
+	return 0
 }
 
 // Draw applies an error diffusion algorithm to the src image
@@ -81,21 +102,20 @@ func (dit Dither) Draw(dst draw.Image, r image.Rectangle, src image.Image, sp im
 	p := dst.(*image.Paletted).Palette
 
 	err := NewErrorImage(r)
-	var diff uint64
+	shift := findShift(dit.Matrix)
 
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		for x := r.Min.X; x < r.Max.X; x++ {
 			// using the closest color
-			r, e, d := findColor(err.PixelErrorAt(x, y), src.At(x, y), p)
+			r, e, _ := findColor(err.PixelErrorAt(x, y), src.At(x, y), p)
 			dst.Set(x, y, r)
 			err.SetPixelError(x, y, e)
-			diff += uint64(d)
 
 			// diffusing the error using the diffusion matrix
 			for i, v1 := range dit.Matrix {
 				for j, v2 := range v1 {
-					err.SetPixelError(x+j+dit.Shift, y+i,
-						err.PixelErrorAt(x+j+dit.Shift, y+i).Add(err.PixelErrorAt(x, y).Mul(v2)))
+					err.SetPixelError(x+j+shift, y+i,
+						err.PixelErrorAt(x+j+shift, y+i).Add(err.PixelErrorAt(x, y).Mul(v2)))
 				}
 			}
 		}

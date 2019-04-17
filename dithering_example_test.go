@@ -20,17 +20,10 @@ func ExampleDither_Draw() {
 		log.Fatal(err)
 	}
 
-	dst := image.NewPaletted(image.Rect(0, 0, 640, 480), color.Palette{color.Black, color.White})
+	dst := image.NewPaletted(src.Bounds(), color.Palette{color.Black, color.White})
 
-	floydSteinberg := Dither{[][]float32{
-		{
-			0, 0, 7.0 / 16.0,
-		},
-		{
-			3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0,
-		},
-	},
-	-1,
+	floydSteinberg := Dither{
+		Atkinson,
 	}
 	floydSteinberg.Draw(dst, dst.Bounds(), src, image.ZP)
 
