@@ -23,7 +23,7 @@ func ExampleDither_Draw() {
 	dst := image.NewPaletted(src.Bounds(), color.Palette{color.Black, color.White})
 
 	floydSteinberg := Dither{
-		Atkinson,
+		FloydSteinberg,
 	}
 	floydSteinberg.Draw(dst, dst.Bounds(), src, image.ZP)
 
