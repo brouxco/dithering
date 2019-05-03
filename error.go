@@ -71,9 +71,9 @@ func (p *ErrorImage) At(x, y int) color.Color {
 	}
 	i := p.PixOffset(x, y)
 
-	r := (p.Pix[i+0]) + float32(math.Abs(float64(p.Min.R))) / (p.Max.R - p.Min.R) * 255
-	g := (p.Pix[i+1]) + float32(math.Abs(float64(p.Min.G))) / (p.Max.G - p.Min.G) * 255
-	b := (p.Pix[i+2]) + float32(math.Abs(float64(p.Min.B))) / (p.Max.B - p.Min.B) * 255
+	r := (p.Pix[i+0]) + float32(math.Abs(float64(p.Min.R)))/(p.Max.R-p.Min.R)*255
+	g := (p.Pix[i+1]) + float32(math.Abs(float64(p.Min.G)))/(p.Max.G-p.Min.G)*255
+	b := (p.Pix[i+2]) + float32(math.Abs(float64(p.Min.B)))/(p.Max.B-p.Min.B)*255
 
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
@@ -105,6 +105,7 @@ func (p *ErrorImage) Set(x, y int, c color.Color) {
 	}
 	i := p.PixOffset(x, y)
 	c1 := color.ModelFunc(pixelErrorModel).Convert(c).(PixelError)
+	// TODO(brouxco): use min and max functions maybe ?
 	if c1.R > p.Max.R {
 		p.Max.R = c1.R
 	}
