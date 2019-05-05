@@ -29,7 +29,22 @@ var (
 // Dither represent dithering algorithm implementation
 type Dither struct {
 	// Matrix is the error diffusion matrix
-	Matrix [][]float32
+	Matrix    [][]float32
+	animation chan draw.Image
+	nbFrames  int
+}
+
+// NewDither prepares a dithering algorithm
+func NewDither(matrix [][]float32) Dither {
+	return Dither{matrix, make(chan draw.Image), 1}
+}
+
+// NewDitherAnimation prepares a dithering algorithm and animation
+//
+// you can retrieve every generated frames thanks to RetrieveFrame
+// Note: frames are shared using an unbuffered channel
+func NewDitherAnimation(matrix [][]float32, nbFrames int) Dither {
+	return Dither{matrix, make(chan draw.Image), nbFrames}
 }
 
 // abs gives the absolute value of a signed integer
@@ -102,21 +117,27 @@ func findShift(matrix [][]float32) int {
 }
 
 // Draw applies an error diffusion algorithm to the src image
-func (dit Dither) Draw(dst draw.Image, r image.Rectangle, src image.Image, sp image.Point) {
+func (dit Dither) Draw(dst draw.Image, rect image.Rectangle, src image.Image, sp image.Point) {
 	if _, ok := dst.(*image.Paletted); !ok {
 		return
 	}
 	p := dst.(*image.Paletted).Palette
 
-	err := NewErrorImage(r)
+	err := NewErrorImage(rect)
 	shift := findShift(dit.Matrix)
 
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
+	pixPerFrame := (rect.Dx() * rect.Dy()) / dit.nbFrames
+
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		for x := rect.Min.X; x < rect.Max.X; x++ {
 			// using the closest color
 			r, e, _ := findColor(err.PixelErrorAt(x, y), src.At(x, y), p)
 			dst.Set(x, y, r)
 			err.SetPixelError(x, y, e)
+
+			if (y != 0 && x != 0) && (((y*rect.Dy())+x)%pixPerFrame == 0) {
+				dit.animation <- dst
+			}
 
 			// diffusing the error using the diffusion matrix
 			for i, v1 := range dit.Matrix {
@@ -127,4 +148,9 @@ func (dit Dither) Draw(dst draw.Image, r image.Rectangle, src image.Image, sp im
 			}
 		}
 	}
+}
+
+// RetrieveFrame returns the next available frame
+func (dit Dither) RetrieveFrame() draw.Image {
+	return <-dit.animation
 }

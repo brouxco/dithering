@@ -14,9 +14,7 @@ func TestDither_DrawCheckerboard(t *testing.T) {
 	src := &image.Uniform{color.Gray{0x7f}}
 	dst := image.NewPaletted(b, color.Palette{color.Black, color.White})
 
-	floydSteinberg := Dither{
-		FloydSteinberg,
-	}
+	floydSteinberg := NewDither(FloydSteinberg)
 	floydSteinberg.Draw(dst, b, src, image.ZP)
 
 	nErr := 0
